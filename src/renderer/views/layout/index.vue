@@ -17,6 +17,11 @@
       </mu-appbar>
       <row-table/>
     </div>
+    <div class="logger">
+      <div class="log" v-for="(log,i) of logs" :key="i">
+        {{log}}
+      </div>
+    </div>
   </div>
 </template>
 
@@ -35,6 +40,9 @@ export default {
     },
     table() {
       return this.$store.state.table;
+    },
+    logs() {
+      return this.$store.state.logs;
     }
   },
   methods: {}
@@ -50,5 +58,13 @@ export default {
 }
 .mu-drawer {
   width: 300px;
+}
+.logger {
+  height: 200px;
+  overflow: auto;
+  padding: 10px 8px;
+  .log {
+    margin-bottom: 10px;
+  }
 }
 </style>

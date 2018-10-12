@@ -20,19 +20,27 @@
       height="580" 
       border 
       :loading="loading" 
-      stripe 
-      :data="rows" 
+      :data="rows"
+      ref="table"
+      @selection-change="handleSelectionChange"
       >
       <el-table-column
+        type="selection"
+        width="55">
+      </el-table-column>
+      <el-table-column
         type="index"
-        label=" "
         >
       </el-table-column>
       <el-table-column 
         v-for="(column,index) of columns"
         :key="index"
+        sortable
         :label="column.Field"
         :prop="column.Field">
+        <template slot-scope="scope">
+          <input class="prop" v-model="scope.row[column.Field]">
+        </template>
       </el-table-column>
     </el-table>
     <mu-dialog title="提醒" width="360" :open.sync="isError">
@@ -60,7 +68,7 @@ export default {
   computed: {
     rows() {
       const rs = this.$store.state.rows || [];
-      return rs;
+      return rs.map((item, index) => ({ ...item, index }));
     },
     columns() {
       return this.$store.state.columns;
@@ -96,9 +104,13 @@ export default {
     }
   },
   methods: {
+    handleSelectionChange(selection) {
+      this.selects = selection;
+    },
     getValues() {
       const database = this.$store.state.database;
       const table = this.$store.state.table;
+      this.clearState();
       if (database && table) {
         this.loading = true;
         setTimeout(() => {
@@ -109,21 +121,21 @@ export default {
       }
     },
     recover() {
-      this.selects = [];
-      this.handleData.removes = [];
-      const trs = Array.from(document.querySelectorAll("tr")).slice(1);
-      trs.forEach(tr => (tr.style.cssText = ""));
+      this.clearState();
     },
     removeRows() {
-      const selectedIds = this.rows
-        .filter(row => this.selects.includes(row.index - 1))
-        .map(_ => _.id);
+      const selectsIndex = this.selects.map(_ => _.index);
+      const PK = this.columns.filter(col => col["Key"] === "PRI")[0].Field;
+      const selectedPKs = this.rows
+        .filter((row, index) => selectsIndex.includes(index))
+        .map(_ => _[PK]);
+      console.log(this.columns);
       const trs = Array.from(document.querySelectorAll("tr")).slice(1);
-      trs.filter((tr, index) => this.selects.includes(index)).forEach(tr => {
+      trs.filter((tr, index) => selectsIndex.includes(index)).forEach(tr => {
         tr.style.background = "#ef9a9a";
       });
-      for (const id of selectedIds) {
-        this.handleData.removes.push({ id });
+      for (const pk of selectedPKs) {
+        this.handleData.removes.push({ key: PK, value: pk });
       }
     },
     async addRow() {},
@@ -133,7 +145,13 @@ export default {
       }
       this.getValues();
       this.recover();
+    },
+    clearState() {
+      this.$refs.table.clearSelection();
       this.selects = [];
+      this.handleData.removes = [];
+      const trs = Array.from(document.querySelectorAll("tr")).slice(1);
+      trs.forEach(tr => (tr.style.cssText = ""));
     }
   }
 };
@@ -142,7 +160,12 @@ export default {
 .el-table {
   .cell {
     white-space: nowrap !important;
-    max-height: 20px !important;
   }
+}
+input.prop{
+  outline: none;
+  border: none;
+  background: transparent;
+  width: 100%;
 }
 </style>

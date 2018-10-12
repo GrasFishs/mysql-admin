@@ -18,7 +18,8 @@ export default new Vuex.Store({
     rows: [],
     database: "",
     table: "",
-    columns: []
+    columns: [],
+    logs: []
   },
 
   mutations: {
@@ -27,6 +28,11 @@ export default new Vuex.Store({
       const tables = state.databases.find(db => db.name === state.database)
         .tables;
       state.columns = tables.find(table => table.name === state.table).cols;
+    },
+    addLog(state, sql) {
+      if (state.logs[state.logs.length - 1] !== sql) {
+        state.logs = [...state.logs, sql];
+      }
     }
   },
   actions: {
@@ -114,18 +120,19 @@ export default new Vuex.Store({
         }
       });
     },
-    removeRow({ state }, { id }) {
+    removeRow({ state }, { key, value }) {
       return new Promise(async (resolve, reject) => {
         try {
           await mainAPI.removeRow(
             state.option,
             state.database,
             state.table,
-            id
+            key,
+            value
           );
           Notification.success({
             title: "删除提醒",
-            message: `删除${id}成功！`
+            message: `删除${key}为${value}的行成功！`
           });
           resolve();
         } catch (e) {

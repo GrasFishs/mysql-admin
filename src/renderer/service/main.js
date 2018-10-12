@@ -1,9 +1,11 @@
 import { post } from "./util";
 import { createPool } from "mysql";
+import store from "../store";
 
-const query = pool => (sql, values) => {
+const query = (pool, isLog = true) => (sql, values) => {
   return new Promise((resolve, reject) => {
     pool.query(sql, values, (err, result) => {
+      isLog && store.commit("addLog", sql);
       if (err) reject(err);
       resolve(result);
     });
@@ -13,8 +15,7 @@ const query = pool => (sql, values) => {
 export const API = {
   connect: async body => {
     const pool = createPool(body);
-    await query(pool)("SET time_zone = '+8:00'");
-    return await query(pool)("SHOW DATABASES");
+    return await query(pool, false)("SHOW DATABASES");
   },
   getRows: async (body, database, table) => {
     const pool = createPool(body);
@@ -23,15 +24,17 @@ export const API = {
   useDatabase: async (body, database) => {
     const pool = createPool(body);
     await query(pool)(`USE ${database}`);
-    return await query(pool)(`SHOW TABLES`);
+    return await query(pool, false)(`SHOW TABLES`);
   },
   getTypes: async (body, databse, table) => {
     const pool = createPool(body);
-    return await query(pool)(`DESC ${databse}.${table}`);
+    return await query(pool, false)(`DESC ${databse}.${table}`);
   },
-  removeRow: async (body, database, table, id) => {
+  removeRow: async (body, database, table, key, value) => {
     const pool = createPool(body);
-    return await query(pool)(`DELETE FROM ${database}.${table} WHERE id=${id}`);
+    return await query(pool)(
+      `DELETE FROM ${database}.${table} WHERE ${key}=${value}`
+    );
   }
 };
 
@@ -84,10 +87,10 @@ export const mainAPI = {
       }
     });
   },
-  removeRow(option, database, table, id) {
+  removeRow(option, database, table, key, value) {
     return new Promise(async (resolve, reject) => {
       try {
-        const res = await API.removeRow(option, database, table, id);
+        const res = await API.removeRow(option, database, table, key, value);
         resolve(res);
       } catch (e) {
         reject(e);
