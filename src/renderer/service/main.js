@@ -35,6 +35,20 @@ export const API = {
     return await query(pool)(
       `DELETE FROM ${database}.${table} WHERE ${key}=${value}`
     );
+  },
+  updateRow: async (body, database, table, key, value) => {
+    const pool = createPool(body);
+    let str = "";
+    Object.keys(value).forEach(v => {
+      if (v !== key) {
+        str += `${v}='${value[v]}',`;
+      }
+    });
+    str = str.slice(0, str.length - 1);
+    console.log(str);
+    return await query(pool)(
+      `UPDATE ${database}.${table} SET ${str} WHERE ${key}=${value[key]}`
+    );
   }
 };
 
@@ -91,6 +105,16 @@ export const mainAPI = {
     return new Promise(async (resolve, reject) => {
       try {
         const res = await API.removeRow(option, database, table, key, value);
+        resolve(res);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
+  updateRow(option, database, table, key, value) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const res = await API.updateRow(option, database, table, key, value);
         resolve(res);
       } catch (e) {
         reject(e);

@@ -132,10 +132,38 @@ export default new Vuex.Store({
           );
           Notification.success({
             title: "删除提醒",
-            message: `删除${key}为${value}的行成功！`
+            message: `删除【${key}=${value}】行成功！`
           });
           resolve();
         } catch (e) {
+          Notification.error({
+            title: "删除错误",
+            message: e.sqlMessage
+          });
+          reject(e);
+        }
+      });
+    },
+    updateRow({ state }, { key, value }) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          await mainAPI.updateRow(
+            state.option,
+            state.database,
+            state.table,
+            key,
+            value
+          );
+          Notification.success({
+            title: "更新提醒",
+            message: `更新【${key}=${value[key]}】行成功！`
+          });
+          resolve();
+        } catch (e) {
+          Notification.error({
+            title: "更新错误",
+            message: e.sqlMessage
+          });
           reject(e);
         }
       });

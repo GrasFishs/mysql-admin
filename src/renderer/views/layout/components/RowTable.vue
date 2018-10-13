@@ -39,7 +39,7 @@
         :label="column.Field"
         :prop="column.Field">
         <template slot-scope="scope">
-          <input class="prop" v-model="scope.row[column.Field]">
+          <input :readonly="column.Key === 'PRI'" class="prop" v-model="scope.row[column.Field]" @input="updateField(scope.row)">
         </template>
       </el-table-column>
     </el-table>
@@ -122,39 +122,72 @@ export default {
     },
     recover() {
       this.clearState();
+      this.getValues();
+    },
+    updateField(row) {
+      this.changeBackground([row.index], "#90caf9");
+      if (!this.handleData.updates.includes(row)) {
+        this.handleData.updates.push(row);
+      }
     },
     removeRows() {
+      const PK = this.getPrimaryKey();
       const selectsIndex = this.selects.map(_ => _.index);
-      const PK = this.columns.filter(col => col["Key"] === "PRI")[0].Field;
       const selectedPKs = this.rows
         .filter((row, index) => selectsIndex.includes(index))
         .map(_ => _[PK]);
-      console.log(this.columns);
-      const trs = Array.from(document.querySelectorAll("tr")).slice(1);
-      trs.filter((tr, index) => selectsIndex.includes(index)).forEach(tr => {
-        tr.style.background = "#ef9a9a";
-      });
+      this.changeBackground(this.selects.map(_ => _.index), "#f48fb1");
       for (const pk of selectedPKs) {
         this.handleData.removes.push({ key: PK, value: pk });
       }
     },
     async addRow() {},
     async handle() {
+      const PK = this.getPrimaryKey();
       for (const obj of this.handleData.removes) {
         await this.$store.dispatch("removeRow", obj);
       }
-      this.getValues();
+      const updates = this.handleData.updates.map(value => ({
+        key: PK,
+        value: excludeIndex(value)
+      }));
+      for (const obj of updates) {
+        await this.$store.dispatch("updateRow", obj);
+      }
       this.recover();
     },
     clearState() {
       this.$refs.table.clearSelection();
       this.selects = [];
       this.handleData.removes = [];
-      const trs = Array.from(document.querySelectorAll("tr")).slice(1);
-      trs.forEach(tr => (tr.style.cssText = ""));
+      this.changeBackground();
+    },
+    changeBackground(selection, color) {
+      if (color) {
+        const trs = Array.from(document.querySelectorAll("tr")).slice(1);
+        trs.filter((tr, index) => selection.includes(index)).forEach(tr => {
+          tr.style.background = color;
+        });
+      } else {
+        const trs = Array.from(document.querySelectorAll("tr")).slice(1);
+        trs.forEach(tr => (tr.style.cssText = ""));
+      }
+    },
+    getPrimaryKey() {
+      return this.columns.filter(col => col["Key"] === "PRI")[0].Field;
     }
   }
 };
+
+function excludeIndex(obj) {
+  const json = {};
+  for (let key of Object.keys(obj)) {
+    if (key !== "index") {
+      json[key] = obj[key];
+    }
+  }
+  return json;
+}
 </script>
 <style lang="scss">
 .el-table {
@@ -162,7 +195,7 @@ export default {
     white-space: nowrap !important;
   }
 }
-input.prop{
+input.prop {
   outline: none;
   border: none;
   background: transparent;
