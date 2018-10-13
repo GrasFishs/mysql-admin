@@ -3,7 +3,7 @@
   <div style="padding:10px">
     <mu-text-field v-model="option.host" label="host" label-float full-width></mu-text-field>
     <mu-text-field v-model="option.user" label="user" label-float full-width></mu-text-field>
-    <mu-text-field v-model="option.password" label="password" type="password" label-float full-width></mu-text-field>
+    <mu-text-field v-model="option.password" label="password" label-float full-width></mu-text-field>
     <mu-button color="primary" @click="connect">connect</mu-button>
   </div>
 </template>

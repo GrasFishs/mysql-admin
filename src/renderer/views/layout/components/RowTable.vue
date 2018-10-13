@@ -1,21 +1,24 @@
 <!-- 查询表 -->
+import { setTimeout } from 'timers';
 <template>
   <div>
-    <mu-button color="primary" icon @click="getValues">
-      <font-icon icon="sync-alt"></font-icon>
-    </mu-button>
-    <mu-button color="error" icon @click="removeRows">
-      <font-icon icon="minus"></font-icon>
-    </mu-button>
-    <mu-button color="success" icon>
-      <font-icon icon="plus"></font-icon>
-    </mu-button>
-     <mu-button color="#1565c0" icon @click="recover">
-      <font-icon icon="history"></font-icon>
-    </mu-button>
-    <mu-button color="warning" icon @click="handle">
-      <font-icon icon="cloud-upload-alt"></font-icon>
-    </mu-button>
+    <div class="ops">
+      <mu-button color="primary" small icon @click="getValues">
+        <font-icon icon="sync-alt"></font-icon>
+      </mu-button>
+      <mu-button color="error" small icon @click="removeRows" :disabled="rows.length === 0">
+        <font-icon icon="minus"></font-icon>
+      </mu-button>
+      <mu-button color="success" small icon @click="addRow" :disabled="rows.length === 0">
+        <font-icon icon="plus"></font-icon>
+      </mu-button>
+      <mu-button color="#1565c0" small icon @click="recover" :disabled="rows.length === 0">
+        <font-icon icon="history"></font-icon>
+      </mu-button>
+      <mu-button color="warning" small icon @click="handle">
+        <font-icon icon="cloud-upload-alt"></font-icon>
+      </mu-button>
+    </div>
     <el-table
       height="580" 
       border 
@@ -36,10 +39,12 @@
         v-for="(column,index) of columns"
         :key="index"
         sortable
-        :label="column.Field"
-        :prop="column.Field">
+        :label="column.Field">
         <template slot-scope="scope">
-          <input :readonly="column.Key === 'PRI'" class="prop" v-model="scope.row[column.Field]" @input="updateField(scope.row)">
+          <input v-if="column.Field !== PK" class="prop" v-model="scope.row[column.Field]" @input="updateField(scope.row)">
+          <el-tooltip v-if="column.Field === PK" content="Be carefully update!" placement="top">
+            <input class="prop" v-model="scope.row[column.Field]" @input="updateField(scope.row)">
+          </el-tooltip>
         </template>
       </el-table-column>
     </el-table>
@@ -101,6 +106,9 @@ export default {
       } else {
         return [];
       }
+    },
+    PK() {
+      return this.columns.filter(col => col["Key"] === "PRI")[0].Field;
     }
   },
   methods: {
@@ -125,42 +133,70 @@ export default {
       this.getValues();
     },
     updateField(row) {
-      this.changeBackground([row.index], "#90caf9");
-      if (!this.handleData.updates.includes(row)) {
-        this.handleData.updates.push(row);
+      if (row[this.PK]) {
+        //this.setSelection(this.rows[row.index]);
+        if (
+          !this.handleData.updates.includes(row) &&
+          !this.handleData.adds.includes(row)
+        ) {
+          this.changeBackground([row.index], "#90caf9");
+          this.handleData.updates.push(row);
+        }
       }
     },
     removeRows() {
-      const PK = this.getPrimaryKey();
       const selectsIndex = this.selects.map(_ => _.index);
       const selectedPKs = this.rows
         .filter((row, index) => selectsIndex.includes(index))
-        .map(_ => _[PK]);
+        .map(_ => _[this.PK]);
       this.changeBackground(this.selects.map(_ => _.index), "#f48fb1");
       for (const pk of selectedPKs) {
-        this.handleData.removes.push({ key: PK, value: pk });
+        this.handleData.removes.push({ key: this.PK, value: pk });
       }
     },
-    async addRow() {},
+    addRow() {
+      this.$store.commit("addRow");
+      setTimeout(() => {
+        const last = this.rows[this.rows.length - 1];
+        this.changeBackground([last.index], "#81c784");
+        //this.setSelection(last);
+        this.handleData.adds.push(last);
+        this.$refs.table.bodyWrapper.scrollTop =
+          this.$refs.table.bodyWrapper.scrollHeight;
+      }, 100);
+    },
     async handle() {
-      const PK = this.getPrimaryKey();
       for (const obj of this.handleData.removes) {
         await this.$store.dispatch("removeRow", obj);
       }
       const updates = this.handleData.updates.map(value => ({
-        key: PK,
+        key: this.PK,
         value: excludeIndex(value)
       }));
       for (const obj of updates) {
         await this.$store.dispatch("updateRow", obj);
+      }
+      const adds = this.handleData.adds.map(value => ({
+        key: this.PK,
+        value: excludeIndex(value)
+      }));
+      for (const obj of adds) {
+        await this.$store.dispatch("addRow", obj);
       }
       this.recover();
     },
     clearState() {
       this.$refs.table.clearSelection();
       this.selects = [];
-      this.handleData.removes = [];
+      for (const key in this.handleData) {
+        this.handleData[key] = [];
+      }
       this.changeBackground();
+    },
+    setSelection(add) {
+      [...this.selects, add].forEach(row =>
+        this.$refs.table.toggleRowSelection(row, true)
+      );
     },
     changeBackground(selection, color) {
       if (color) {
@@ -173,10 +209,19 @@ export default {
         trs.forEach(tr => (tr.style.cssText = ""));
       }
     },
-    getPrimaryKey() {
-      return this.columns.filter(col => col["Key"] === "PRI")[0].Field;
+    keyupEvent(e) {
+      if (e.keyCode === 13) {
+        console.log("handle");
+        this.handle();
+      }
     }
   }
+  // created() {
+  //   document.addEventListener("keyup", this.keyupEvent);
+  // },
+  // beforeDestroy() {
+  //   document.removeEventListener("keyup", this.keyupEvent);
+  // }
 };
 
 function excludeIndex(obj) {
@@ -194,6 +239,9 @@ function excludeIndex(obj) {
   .cell {
     white-space: nowrap !important;
   }
+}
+.ops {
+  margin: 5px;
 }
 input.prop {
   outline: none;

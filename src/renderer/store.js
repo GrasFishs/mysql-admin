@@ -1,6 +1,6 @@
 import Vue from "vue";
 import Vuex from "vuex";
-import { mainAPI, API } from "./service";
+import { mainAPI } from "./service";
 import { Loading, Notification } from "element-ui";
 import NProgress from "nprogress";
 
@@ -30,9 +30,15 @@ export default new Vuex.Store({
       state.columns = tables.find(table => table.name === state.table).cols;
     },
     addLog(state, sql) {
-      if (state.logs[state.logs.length - 1] !== sql) {
-        state.logs = [...state.logs, sql];
+      state.logs = [...state.logs, sql];
+    },
+    addRow(state) {
+      const index = state.rows.length;
+      const row = state.rows[0];
+      for (const key of Object.keys(row)) {
+        row[key] = "";
       }
+      state.rows.push({ ...row, index });
     }
   },
   actions: {
@@ -162,6 +168,30 @@ export default new Vuex.Store({
         } catch (e) {
           Notification.error({
             title: "更新错误",
+            message: e.sqlMessage
+          });
+          reject(e);
+        }
+      });
+    },
+    addRow({ state }, { key, value }) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          await mainAPI.addRow(
+            state.option,
+            state.database,
+            state.table,
+            key,
+            value
+          );
+          Notification.success({
+            title: "插入提醒",
+            message: `插入【${key}=${value[key]}】行成功！`
+          });
+          resolve();
+        } catch (e) {
+          Notification.error({
+            title: "插入错误",
             message: e.sqlMessage
           });
           reject(e);

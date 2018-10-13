@@ -1,11 +1,16 @@
 import { post } from "./util";
 import { createPool } from "mysql";
 import store from "../store";
+import moment from "moment";
 
 const query = (pool, isLog = true) => (sql, values) => {
   return new Promise((resolve, reject) => {
     pool.query(sql, values, (err, result) => {
-      isLog && store.commit("addLog", sql);
+      isLog &&
+        store.commit("addLog", {
+          sql,
+          time: moment().format("YYYY-MM-DD hh:mm:ss")
+        });
       if (err) reject(err);
       resolve(result);
     });
@@ -45,10 +50,27 @@ export const API = {
       }
     });
     str = str.slice(0, str.length - 1);
-    console.log(str);
     return await query(pool)(
       `UPDATE ${database}.${table} SET ${str} WHERE ${key}=${value[key]}`
     );
+  },
+  addRow: async (body, database, table, key, value) => {
+    const pool = createPool(body);
+    let fileds = "";
+    let values = "";
+    for (const key in value) {
+      fileds += `${key},`;
+      values += `'${value[key]}',`;
+    }
+    fileds = fileds.slice(0, fileds.length - 1);
+    values = values.slice(0, values.length - 1);
+
+    return await query(pool)(
+      `INSERT ${database}.${table} (${fileds}) VALUES (${values})`
+    );
+  },
+  command: async (body, sql) => {
+    return await query(createPool(body))(sql);
   }
 };
 
@@ -115,6 +137,26 @@ export const mainAPI = {
     return new Promise(async (resolve, reject) => {
       try {
         const res = await API.updateRow(option, database, table, key, value);
+        resolve(res);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
+  addRow(option, database, table, key, value) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const res = await API.addRow(option, database, table, key, value);
+        resolve(res);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
+  command(option, sql) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const res = await API.command(option, sql);
         resolve(res);
       } catch (e) {
         reject(e);

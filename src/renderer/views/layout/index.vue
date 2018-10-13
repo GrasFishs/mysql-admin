@@ -16,20 +16,16 @@
         </div>
       </mu-appbar>
       <row-table/>
-    </div>
-    <div class="logger">
-      <div class="log" v-for="(log,i) of logs" :key="i">
-        {{log}}
-      </div>
+      <logger/>
     </div>
   </div>
 </template>
 
 <script>
-import { DBList, RowTable } from "./components";
+import { DBList, RowTable, Logger } from "./components";
 export default {
   name: "layout",
-  components: { DBList, RowTable },
+  components: { DBList, RowTable, Logger },
   name: "PersistentFull",
   data: () => ({
     dbsVisible: true
@@ -40,9 +36,6 @@ export default {
     },
     table() {
       return this.$store.state.table;
-    },
-    logs() {
-      return this.$store.state.logs;
     }
   },
   methods: {}
@@ -58,13 +51,5 @@ export default {
 }
 .mu-drawer {
   width: 300px;
-}
-.logger {
-  height: 200px;
-  overflow: auto;
-  padding: 10px 8px;
-  .log {
-    margin-bottom: 10px;
-  }
 }
 </style>
