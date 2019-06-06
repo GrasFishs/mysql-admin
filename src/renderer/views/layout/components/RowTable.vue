@@ -1,10 +1,10 @@
 <!-- 查询表 -->
 <template>
-  <div>
+  <div v-if="table">
     <div class="ops">
-      <Page :total="total"
-            :size="size"
-            :currentPage="page"
+      <Page :total="table ? table.total : 1"
+            :size="table ? table.size: 1"
+            :currentPage="table ? table.page : 1"
             @onPageChange="onPageChange" />
       <mu-button color="primary"
                  small
@@ -16,21 +16,21 @@
                  small
                  icon
                  @click="removeRows"
-                 :disabled="rows.length === 0">
+                 :disabled="table && table.rows.length === 0">
         <font-icon icon="minus"></font-icon>
       </mu-button>
       <mu-button color="success"
                  small
                  icon
                  @click="addRow"
-                 :disabled="rows.length === 0">
+                 :disabled="table && table.rows.length === 0">
         <font-icon icon="plus"></font-icon>
       </mu-button>
       <mu-button color="#1565c0"
                  small
                  icon
                  @click="recover"
-                 :disabled="rows.length === 0">
+                 :disabled="table && table.rows.length === 0">
         <font-icon icon="history"></font-icon>
       </mu-button>
       <mu-button color="warning"
@@ -43,7 +43,7 @@
     <el-table height="580"
               border
               :loading="loading"
-              :data="rows"
+              :data="table.rows"
               ref="table"
               @selection-change="handleSelectionChange">
       <el-table-column type="selection"
@@ -51,7 +51,7 @@
       </el-table-column>
       <el-table-column type="index">
       </el-table-column>
-      <el-table-column v-for="(column,index) of columns"
+      <el-table-column v-for="(column,index) of table.columns"
                        :key="index"
                        sortable
                        :label="column.Field">
@@ -80,10 +80,21 @@
                  @click="isError = false">关闭</mu-button>
     </mu-dialog>
   </div>
+  <div class="none"
+       v-else>
+    没有选中表
+  </div>
 </template>
 <script>
+const Colors = {
+  add: "#81c784",
+  remove: "#f48fb1",
+  update: "#90caf9"
+}
+
 import Page from './Page'
 // TODO: sort column by sql
+// TODO: show by rows
 const defaultSize = 100;
 export default {
   name: "rowTable",
@@ -92,25 +103,21 @@ export default {
     drawerShow: {
       type: Boolean,
       default: false
+    },
+    currentTable: {
+      type: String,
+      default: ''
     }
   },
   watch: {
     drawerShow (newValue) {
-      if (newValue === false) {
-        const { database, table } = this.$store.state;
-        if (database && table) {
-          const loading = this.$loading({
-            lock: true,
-            background: "hsla(0,0%,100%,.1)",
-            text: "获取数据中..."
-          });
-          this.page = 1;
-          this.size = defaultSize;
-          this.$store.dispatch("getValues", { page: this.page, size: this.size }).then(() => {
-            loading.close();
-            this.size = Math.min(this.total, this.size);
-          });
-        }
+      if (newValue === false && this.currentTable) {
+        this.getValues();
+      }
+    },
+    currentTable (v) {
+      if (v && this.table.rows.length === 0) {
+        this.getValues();
       }
     }
   },
@@ -129,47 +136,12 @@ export default {
     };
   },
   computed: {
-    rows () {
-      const rs = this.$store.state.rows || [];
-      return rs.map((item, index) => ({ ...item, index }));
-    },
-    columns () {
-      return this.$store.state.columns;
-    },
-    total () {
-      return this.$store.state.total;
-    },
-    mdColumns () {
-      if (this.$store.state.columns.length > 0) {
-        const cols = this.$store.state.columns.map(obj => {
-          const matches = obj.Type.match(/\(.+\)/g);
-          const reg = matches ? matches[0].replace(/\(|\)/g, "") : "20";
-          const len = reg.includes(",")
-            ? reg
-              .split(",")
-              .map(Number)
-              .reduce((a, b) => a + b)
-            : Number(reg);
-          return {
-            title: obj.Field,
-            name: obj.Field,
-            width: 80 + len * 5,
-            align: "center"
-          };
-        });
-        cols.unshift({
-          title: "index",
-          name: "index",
-          width: 80,
-          align: "center"
-        });
-        return cols;
-      } else {
-        return [];
-      }
+    table () {
+      return this.currentTable ?
+        this.$store.state.db.tables[this.currentTable] : null;
     },
     PK () {
-      return this.columns.filter(col => col["Key"] === "PRI")[0].Field;
+      return this.table.columns.filter(col => col["Key"] === "PRI")[0].Field;
     }
   },
   methods: {
@@ -177,27 +149,26 @@ export default {
       this.selects = selection;
     },
     getValues () {
-      const { database, table } = this.$store.state;
       this.clearState();
-      if (database && table) {
+      if (this.currentTable) {
+        console.log(this.table.columns.map(col => col.Field))
         this.loading = true;
         const loading = this.$loading({
           lock: true,
           background: "hsla(0,0%,100%,.1)",
           text: "获取数据中..."
         });
-        setTimeout(() => {
-          this.$store.dispatch("getValues", { size: this.size, page: this.page }).then(() => {
-            this.loading = false;
-            loading.close();
-          });
-        }, 100);
+        this.$store.dispatch("db/getTableRows", { table: this.currentTable }).then(({ total }) => {
+          this.loading = false;
+          loading.close();
+          this.$store.commit('db/SET_TABLE_PAGE', { table: this.currentTable, size: Math.min(total, this.table.size) });
+        });
       } else {
         this.isError = true;
       }
     },
     onPageChange (page) {
-      this.page = page;
+      this.$store.commit('db/SET_TABLE_PAGE', { table: this.currentTable, page })
       this.getValues();
     },
     recover () {
@@ -211,26 +182,26 @@ export default {
           !this.handleData.updates.includes(row) &&
           !this.handleData.adds.includes(row)
         ) {
-          this.changeBackground([row.index], "#90caf9");
+          this.changeBackground([row.index], Colors.update);
           this.handleData.updates.push(row);
         }
       }
     },
     removeRows () {
       const selectsIndex = this.selects.map(_ => _.index);
-      const selectedPKs = this.rows
+      const selectedPKs = this.table.rows
         .filter((row, index) => selectsIndex.includes(index))
         .map(_ => _[this.PK]);
-      this.changeBackground(this.selects.map(_ => _.index), "#f48fb1");
+      this.changeBackground(this.selects.map(_ => _.index), Colors.remove);
       for (const pk of selectedPKs) {
         this.handleData.removes.push({ key: this.PK, value: pk });
       }
     },
     addRow () {
-      this.$store.commit("addRow");
+      this.$store.commit("db/ADD_ROW", this.currentTable);
       setTimeout(() => {
-        const last = this.rows[this.rows.length - 1];
-        this.changeBackground([last.index], "#81c784");
+        const last = this.table.rows[this.table.rows.length - 1];
+        this.changeBackground([last.index], Colors.add);
         //this.setSelection(last);
         this.handleData.adds.push(last);
         this.$refs.table.bodyWrapper.scrollTop =
@@ -248,22 +219,20 @@ export default {
       for (const obj of updates) {
         await this.$store.dispatch("updateRow", obj);
       }
-      const adds = this.handleData.adds.map(value => ({
-        key: this.PK,
-        value: excludeIndex(value)
-      }));
-      for (const obj of adds) {
-        await this.$store.dispatch("addRow", obj);
+      for (const row of this.handleData.adds) {
+        await this.$store.dispatch("db/addRow", { table: this.currentTable, row: excludeIndex(row) });
       }
       this.recover();
     },
     clearState () {
-      this.$refs.table.clearSelection();
-      this.selects = [];
-      for (const key in this.handleData) {
-        this.handleData[key] = [];
+      if (this.$refs.table) {
+        this.$refs.table.clearSelection();
+        this.selects = [];
+        for (const key in this.handleData) {
+          this.handleData[key] = [];
+        }
+        this.changeBackground();
       }
-      this.changeBackground();
     },
     setSelection (add) {
       [...this.selects, add].forEach(row =>
@@ -322,5 +291,11 @@ input.prop {
   border: none;
   background: transparent;
   width: 100%;
+}
+.none {
+  height: 600px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 </style>

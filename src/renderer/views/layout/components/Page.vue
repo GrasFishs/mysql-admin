@@ -42,7 +42,10 @@ export default {
       return this.size > this.total ? 1 : Math.ceil(this.total / this.size);
     },
     range () {
-      return [(this.currentPage - 1) * this.size + 1, this.currentPage === this.maxPage ? this.total : (this.currentPage) * this.size]
+      return [(this.currentPage - 1) * this.size + 1,
+      this.currentPage === this.maxPage ?
+        this.total :
+        (this.currentPage) * this.size]
     }
   },
   methods: {
