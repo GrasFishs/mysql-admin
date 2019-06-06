@@ -1,15 +1,15 @@
-import { post } from "./util";
-import { createPool } from "mysql";
-import store from "../store";
-import moment from "moment";
+import { post } from './util';
+import { createPool } from 'mysql';
+import store from '../store';
+import moment from 'moment';
 
 const query = (pool, isLog = true) => (sql, values) => {
   return new Promise((resolve, reject) => {
     pool.query(sql, values, (err, result) => {
       isLog &&
-        store.commit("addLog", {
+        store.commit('addLog', {
           sql,
-          time: moment().format("YYYY-MM-DD hh:mm:ss")
+          time: moment().format('YYYY-MM-DD hh:mm:ss')
         });
       if (err) reject(err);
       resolve(result);
@@ -20,11 +20,21 @@ const query = (pool, isLog = true) => (sql, values) => {
 export const API = {
   connect: async body => {
     const pool = createPool(body);
-    return await query(pool, false)("SHOW DATABASES");
+    return await query(pool, false)('SHOW DATABASES');
   },
-  getRows: async (body, database, table) => {
-    const pool = createPool(body);
-    return await query(pool)(`SELECT * FROM ${database}.${table}`);
+  getRows(body, database, table, page, size) {
+    try {
+      const pool = createPool(body);
+      return Promise.all([
+        query(pool)(`SELECT count(*) as total FROM ${database}.${table}`),
+        query(pool)(
+          `SELECT * FROM ${database}.${table} LIMIT ${(page - 1) *
+            size},${size}`
+        )
+      ]);
+    } catch (err) {
+      throw err;
+    }
   },
   useDatabase: async (body, database) => {
     const pool = createPool(body);
@@ -43,7 +53,7 @@ export const API = {
   },
   updateRow: async (body, database, table, key, value) => {
     const pool = createPool(body);
-    let str = "";
+    let str = '';
     Object.keys(value).forEach(v => {
       if (v !== key) {
         str += `${v}='${value[v]}',`;
@@ -56,8 +66,8 @@ export const API = {
   },
   addRow: async (body, database, table, key, value) => {
     const pool = createPool(body);
-    let fileds = "";
-    let values = "";
+    let fileds = '';
+    let values = '';
     for (const key in value) {
       fileds += `${key},`;
       values += `'${value[key]}',`;
@@ -80,10 +90,10 @@ export const mainAPI = {
   connect(option) {
     return new Promise(async (resolve, reject) => {
       const excludes = [
-        "information_schema",
-        "mysql",
-        "performance_schema",
-        "sys"
+        'information_schema',
+        'mysql',
+        'performance_schema',
+        'sys'
       ];
       try {
         const res = await API.connect(option);
@@ -103,10 +113,10 @@ export const mainAPI = {
       }
     });
   },
-  getRows(option, database, table) {
+  getRows(option, database, table, page, size) {
     return new Promise(async (resolve, reject) => {
       try {
-        const res = await API.getRows(option, database, table);
+        const res = await API.getRows(option, database, table, page, size);
         resolve(res);
       } catch (e) {
         reject(e);

@@ -1,13 +1,16 @@
 <template>
   <div class="page-container">
-    <mu-drawer :docked="false" :open.sync="dbsVisible">
+    <mu-drawer :docked="false"
+               :open.sync="dbsVisible">
       <div class="drawer-title">Databases</div>
       <mu-divider></mu-divider>
       <DBList />
     </mu-drawer>
     <div style="overflow:auto">
       <mu-appbar color="primary">
-        <mu-button slot="left" icon @click="dbsVisible = !dbsVisible">
+        <mu-button slot="left"
+                   icon
+                   @click="dbsVisible = !dbsVisible">
           <font-icon icon="bars"></font-icon>
         </mu-button>
         MySQL管理系统
@@ -15,8 +18,8 @@
           数据库/表:{{database}}/{{table}}
         </div>
       </mu-appbar>
-      <row-table/>
-      <logger/>
+      <RowTable :drawerShow="dbsVisible" />
+      <logger />
     </div>
   </div>
 </template>
@@ -31,10 +34,10 @@ export default {
     dbsVisible: true
   }),
   computed: {
-    database() {
+    database () {
       return this.$store.state.database;
     },
-    table() {
+    table () {
       return this.$store.state.table;
     }
   },

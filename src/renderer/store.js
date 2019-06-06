@@ -1,23 +1,24 @@
-import Vue from "vue";
-import Vuex from "vuex";
-import { mainAPI } from "./service";
-import { Loading, Notification } from "element-ui";
-import NProgress from "nprogress";
+import Vue from 'vue';
+import Vuex from 'vuex';
+import { mainAPI } from './service';
+import { Loading, Notification } from 'element-ui';
+import NProgress from 'nprogress';
 
 Vue.use(Vuex);
 
 export default new Vuex.Store({
   state: {
     option: {
-      host: "localhost",
-      user: "root",
-      password: "gotoAnd123",
-      dateStrings: ["DATE", "DATETIME"]
+      host: '47.93.41.220',
+      user: 'root',
+      password: 'gotoAnd@123',
+      dateStrings: ['DATE', 'DATETIME']
     },
     databases: [],
+    total: 0,
     rows: [],
-    database: "",
-    table: "",
+    database: '',
+    table: '',
     columns: [],
     logs: []
   },
@@ -36,7 +37,7 @@ export default new Vuex.Store({
       const index = state.rows.length;
       const row = state.rows[0];
       for (const key of Object.keys(row)) {
-        row[key] = "";
+        row[key] = '';
       }
       state.rows.push({ ...row, index });
     }
@@ -44,8 +45,8 @@ export default new Vuex.Store({
   actions: {
     connect({ state }) {
       const loading = Loading.service({
-        background: "hsla(0,0%,100%,.1)",
-        text: "获取数据中..."
+        background: 'hsla(0,0%,100%,.1)',
+        text: '获取数据中...'
       });
       NProgress.start();
       return new Promise(async (resovle, reject) => {
@@ -112,14 +113,18 @@ export default new Vuex.Store({
         }
       });
     },
-    getValues({ state }) {
+    getValues({ state }, { page, size }) {
       return new Promise(async (resolve, reject) => {
         try {
-          state.rows = await mainAPI.getRows(
+          const [counts, rows] = await mainAPI.getRows(
             state.option,
             state.database,
-            state.table
+            state.table,
+            page,
+            size
           );
+          state.rows = rows;
+          state.total = counts[0].total;
           resolve(state.rows);
         } catch (e) {
           reject(e);
@@ -137,13 +142,13 @@ export default new Vuex.Store({
             value
           );
           Notification.success({
-            title: "删除提醒",
+            title: '删除提醒',
             message: `删除【${key}=${value}】行成功！`
           });
           resolve();
         } catch (e) {
           Notification.error({
-            title: "删除错误",
+            title: '删除错误',
             message: e.sqlMessage
           });
           reject(e);
@@ -161,13 +166,13 @@ export default new Vuex.Store({
             value
           );
           Notification.success({
-            title: "更新提醒",
+            title: '更新提醒',
             message: `更新【${key}=${value[key]}】行成功！`
           });
           resolve();
         } catch (e) {
           Notification.error({
-            title: "更新错误",
+            title: '更新错误',
             message: e.sqlMessage
           });
           reject(e);
@@ -185,13 +190,13 @@ export default new Vuex.Store({
             value
           );
           Notification.success({
-            title: "插入提醒",
+            title: '插入提醒',
             message: `插入【${key}=${value[key]}】行成功！`
           });
           resolve();
         } catch (e) {
           Notification.error({
-            title: "插入错误",
+            title: '插入错误',
             message: e.sqlMessage
           });
           reject(e);

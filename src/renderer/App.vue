@@ -11,7 +11,4 @@ export default {
 </script>
 
 <style>
-* {
-  font-family: "微软雅黑";
-}
 </style>
