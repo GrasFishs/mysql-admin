@@ -83,7 +83,7 @@
 </template>
 <script>
 import Page from './Page'
-
+// TODO: sort column by sql
 const defaultSize = 100;
 export default {
   name: "rowTable",

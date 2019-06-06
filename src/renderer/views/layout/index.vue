@@ -19,7 +19,7 @@
         </div>
       </mu-appbar>
       <RowTable :drawerShow="dbsVisible" />
-      <logger />
+      <Logger />
     </div>
   </div>
 </template>
@@ -41,7 +41,8 @@ export default {
       return this.$store.state.table;
     }
   },
-  methods: {}
+  methods: {
+  }
 };
 </script>
 

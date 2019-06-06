@@ -90,7 +90,7 @@ export default new Vuex.Store({
               databasesWithTable.push(
                 tables[i].map((table, index) => ({
                   name: table,
-                  cols: columns.slice(len, tables[i].length + len - 1)[index]
+                  cols: columns.slice(len, tables[i].length + len)[index]
                 }))
               );
               len += tables[i].length;

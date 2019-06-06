@@ -3,7 +3,8 @@
   <div>
     <mu-list toggle-nested>
       <mu-list-item v-for="(db,index) of databases"
-        button :ripple="false"
+        button 
+        :ripple="false"
         @toggle-nested="toggleTable(index)"
         nested
         :open="tableOpen === index"
