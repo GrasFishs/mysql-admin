@@ -47,26 +47,16 @@
               ref="table"
               @selection-change="handleSelectionChange">
       <el-table-column type="selection"
-                       width="55">
-      </el-table-column>
-      <el-table-column type="index">
-      </el-table-column>
+                       width="55" />
+      <el-table-column type="index" />
       <el-table-column v-for="(column,index) of table.columns"
-                       :key="index"
                        sortable
+                       :key="index"
                        :label="column.Field">
         <template slot-scope="scope">
-          <input v-if="column.Field !== PK"
-                 class="prop"
-                 v-model="scope.row[column.Field]"
-                 @input="updateField(scope.row)">
-          <el-tooltip v-if="column.Field === PK"
-                      content="Be carefully update!"
-                      placement="top">
-            <input class="prop"
-                   v-model="scope.row[column.Field]"
-                   @input="updateField(scope.row)">
-          </el-tooltip>
+          <input class="prop"
+                 :value="scope.row[column.Field]"
+                 @change="updateField(scope.row.index,column.Field,$event)">
         </template>
       </el-table-column>
     </el-table>
@@ -92,6 +82,12 @@ const Colors = {
   update: "#90caf9"
 }
 
+const Constants = {
+  ADD: 'add',
+  REMOVE: 'remove',
+  UPDATE: 'update'
+}
+
 import Page from './Page'
 // TODO: sort column by sql
 // TODO: show by rows
@@ -103,10 +99,6 @@ export default {
     drawerShow: {
       type: Boolean,
       default: false
-    },
-    currentTable: {
-      type: String,
-      default: ''
     }
   },
   watch: {
@@ -128,20 +120,20 @@ export default {
       selects: [],
       page: 1,
       size: defaultSize,
-      handleData: {
-        removes: [],
-        adds: [],
-        updates: []
-      }
+      handleRows: {}
     };
   },
   computed: {
+    currentTable () {
+      return this.$store.state.db.currentTable;
+    },
     table () {
       return this.currentTable ?
         this.$store.state.db.tables[this.currentTable] : null;
     },
     PK () {
-      return this.table.columns.filter(col => col["Key"] === "PRI")[0].Field;
+      // TODO: think about the way without primary key
+      return this.table.columns.find(col => col["Key"] === "PRI").Field;
     }
   },
   methods: {
@@ -158,69 +150,88 @@ export default {
           background: "hsla(0,0%,100%,.1)",
           text: "获取数据中..."
         });
-        this.$store.dispatch("db/getTableRows", { table: this.currentTable }).then(({ total }) => {
+        this.$store.dispatch("db/getTableRows").then(({ total }) => {
           this.loading = false;
           loading.close();
-          this.$store.commit('db/SET_TABLE_PAGE', { table: this.currentTable, size: Math.min(total, this.table.size) });
+          this.$store.commit('db/SET_TABLE_PAGE', { size: Math.min(total, this.table.size) });
         });
       } else {
         this.isError = true;
       }
     },
     onPageChange (page) {
-      this.$store.commit('db/SET_TABLE_PAGE', { table: this.currentTable, page })
+      this.$store.commit('db/SET_TABLE_PAGE', { page })
       this.getValues();
     },
     recover () {
       this.clearState();
       this.getValues();
     },
-    updateField (row) {
-      if (row[this.PK]) {
-        //this.setSelection(this.rows[row.index]);
-        if (
-          !this.handleData.updates.includes(row) &&
-          !this.handleData.adds.includes(row)
-        ) {
-          this.changeBackground([row.index], Colors.update);
-          this.handleData.updates.push(row);
+    updateField (index, field, e) {
+      let rowInState = { ...this.table.rows[index] };
+      const { type } = rowInState;
+      let newType = type;
+      rowInState[field] = e.target.value;
+      if (type === Constants.REMOVE || !type) {
+        // 移除转化为更新，或者没有类型的就新增更新
+        rowInState = {
+          type: Constants.UPDATE,
+          key: this.PK,
+          values: exclude(rowInState)
         }
+        newType = Constants.UPDATE;
+        this.changeBackground([index], Colors.update);
       }
+      this.$store.commit('db/SET_ROW',
+        {
+          index,
+          row: {
+            ...rowInState,
+            type: newType
+          }
+        });
+      this.handleRows[index] = rowInState;
+
     },
     removeRows () {
       const selectsIndex = this.selects.map(_ => _.index);
       const selectedPKs = this.table.rows
         .filter((row, index) => selectsIndex.includes(index))
-        .map(_ => _[this.PK]);
+        .map(row => ({
+          pk: row[this.PK],
+          index: row.index
+        }));
       this.changeBackground(this.selects.map(_ => _.index), Colors.remove);
-      for (const pk of selectedPKs) {
-        this.handleData.removes.push({ key: this.PK, value: pk });
+      for (const { pk, index } of selectedPKs) {
+        this.handleRows[index] = { type: Constants.REMOVE, key: this.PK, value: pk };
       }
     },
     addRow () {
-      this.$store.commit("db/ADD_ROW", this.currentTable);
+      this.$store.commit("db/ADD_ROW");
       setTimeout(() => {
         const last = this.table.rows[this.table.rows.length - 1];
         this.changeBackground([last.index], Colors.add);
         //this.setSelection(last);
-        this.handleData.adds.push(last);
+        last.type = Constants.ADD;
+        this.handleRows[last.index] = last;
         this.$refs.table.bodyWrapper.scrollTop =
           this.$refs.table.bodyWrapper.scrollHeight;
-      }, 100);
+      }, 100)
     },
     async handle () {
-      for (const obj of this.handleData.removes) {
-        await this.$store.dispatch("removeRow", obj);
-      }
-      const updates = this.handleData.updates.map(value => ({
-        key: this.PK,
-        value: excludeIndex(value)
-      }));
-      for (const obj of updates) {
-        await this.$store.dispatch("updateRow", obj);
-      }
-      for (const row of this.handleData.adds) {
-        await this.$store.dispatch("db/addRow", { table: this.currentTable, row: excludeIndex(row) });
+      for (const index in this.handleRows) {
+        const row = this.handleRows[index];
+        switch (row.type) {
+          case Constants.ADD:
+            await this.$store.dispatch("db/addRow", { row: exclude(row) });
+            break;
+          case Constants.UPDATE:
+            await this.$store.dispatch("db/updateRow", { key: row.key, values: exclude(row.values) });
+            break;
+          case Constants.REMOVE:
+            await this.$store.dispatch("db/removeRow", { key: row.key, value: row.value });
+            break;
+        }
       }
       this.recover();
     },
@@ -228,9 +239,7 @@ export default {
       if (this.$refs.table) {
         this.$refs.table.clearSelection();
         this.selects = [];
-        for (const key in this.handleData) {
-          this.handleData[key] = [];
-        }
+        this.handleRows = {};
         this.changeBackground();
       }
     },
@@ -265,10 +274,10 @@ export default {
   // }
 };
 
-function excludeIndex (obj) {
+function exclude (obj, excepts = ['index', 'type']) {
   const json = {};
   for (let key of Object.keys(obj)) {
-    if (key !== "index") {
+    if (!excepts.includes(key)) {
       json[key] = obj[key];
     }
   }

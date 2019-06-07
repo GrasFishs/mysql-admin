@@ -24,8 +24,7 @@
                  :tables="tables"
                  @onSelect="handleSelect"
                  @onClose="handleClose" />
-      <RowTable :drawerShow="dbsVisible"
-                :currentTable="currentTable" />
+      <RowTable :drawerShow="dbsVisible" />
       <Logger />
     </div>
   </div>
@@ -39,29 +38,32 @@ export default {
   components: { DBList, RowTable, Logger, TablesNav },
   data () {
     return {
-      dbsVisible: true,
-      currentTable: ''
+      dbsVisible: true
     }
   },
   computed: {
     ...mapState('db', {
       databases: state => state.databases,
-      tables: state => Object.keys(state.tables)
+      tables: state => Object.keys(state.tables),
+      currentTable: state => state.currentTable
     })
   },
   methods: {
+    setTable (t) {
+      this.$store.commit('db/SET_TABLE', t)
+    },
     handleSelect (t) {
       this.$store.commit('db/ADD_TABLE', t)
-      this.currentTable = t;
+      this.setTable(t)
     },
     handleClose (t) {
       const index = this.tables.indexOf(t);
       this.$store.commit('db/REMOVE_TABLE', t)
       if (this.tables.length > 0) {
         if (index === 0) {
-          this.currentTable = this.tables[0];
+          this.setTable(this.tables[0]);
         } else {
-          this.currentTable = this.tables[index - 1]
+          this.setTable(this.tables[index - 1]);
         }
       }
     },

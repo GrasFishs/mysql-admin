@@ -13,13 +13,15 @@ export default {
   removeRow({ database, table, key, value }) {
     return query(`DELETE FROM ${database}.${table} WHERE ${key}=${value}`);
   },
-  updateRow({ database, table, key, value }) {
-    Object.keys(value)
+  updateRow({ database, table, key, values }) {
+    const str = Object.keys(values)
       .filter(k => k !== key)
-      .map(k => `${k}=${value[k]}`)
+      .map(
+        key => (typeof values[key] === 'string' ? `${key}="${values[key]}"` : `${key}=${values[key]}`)
+      )
       .join(',');
     return query(
-      `UPDATE ${database}.${table} SET ${str} WHERE ${key}=${value[key]}`
+      `UPDATE ${database}.${table} SET ${str} WHERE ${key}=${values[key]}`
     );
   },
   addRow({ database, table, row }) {
